@@ -1,10 +1,12 @@
 import os
+import sys
 import argparse
 import time
 from importlib import import_module
 from pathlib import Path
 
 from dotenv import load_dotenv
+from typing import Any, cast
 import pandas as pd
 import tqdm
 
@@ -63,6 +65,72 @@ def parse_args():
 		help="Multiplier applied to the retry delay after each failed attempt.",
 	)
 	return parser.parse_args()
+
+
+def validate_args(args):
+	"""Validate parsed args and print clear explanations for any problems.
+
+	Returns True if validation passes, False otherwise.
+	"""
+	errors = []
+
+	# dataset path checks
+	if not args.dataset_path:
+		errors.append("--dataset-path is required and must point to an existing CSV file.")
+	else:
+		ds_path = Path(args.dataset_path)
+		if not ds_path.exists():
+			errors.append(f"--dataset-path: file '{args.dataset_path}' does not exist.")
+		elif not ds_path.is_file():
+			errors.append(f"--dataset-path: '{args.dataset_path}' is not a file.")
+		elif ds_path.suffix.lower() != ".csv":
+			errors.append(f"--dataset-path: expected a CSV file ('.csv'). Found '{ds_path.suffix}'.")
+
+	# output path checks (ensure parent writable / creatable)
+	if not args.output_path:
+		errors.append("--output-path is required and must point to a file to write results to.")
+	else:
+		out_path = Path(args.output_path)
+		parent = out_path.parent if out_path.parent.name else Path('.')
+		if not parent.exists():
+			try:
+				parent.mkdir(parents=True, exist_ok=True)
+			except Exception:
+				errors.append(f"--output-path: directory '{parent}' does not exist and could not be created.")
+		elif not os.access(str(parent), os.W_OK):
+			errors.append(f"--output-path: directory '{parent}' is not writable.")
+
+	# enum / string checks
+	if args.api not in ("GEMINI", "OPENROUTER", "MISTRAL"):
+		errors.append("--api must be one of: GEMINI, OPENROUTER, MISTRAL.")
+	if not args.model or not str(args.model).strip():
+		errors.append("--model must be a non-empty model identifier string.")
+
+	# numeric checks
+	if args.temperature is None or not isinstance(args.temperature, float) and not isinstance(args.temperature, int):
+		errors.append("--temperature must be a number (float).")
+	else:
+		if args.temperature < 0 or args.temperature > 2:
+			errors.append("--temperature must be between 0 and 2 (inclusive).")
+
+	if args.reruns is None or args.reruns < 1:
+		errors.append("--reruns must be an integer >= 1.")
+	if args.max_retries is None or args.max_retries < 0:
+		errors.append("--max-retries must be an integer >= 0.")
+	if args.retry_cooldown_seconds is None or args.retry_cooldown_seconds < 0:
+		errors.append("--retry-cooldown-seconds must be >= 0.")
+	if args.increase_cooldown_timer is None or args.increase_cooldown_timer < 1:
+		errors.append("--increase-cooldown-timer must be >= 1.")
+
+	# Report errors
+	if errors:
+		print("Argument validation failed for the following reasons:", file=sys.stderr)
+		for e in errors:
+			print(f"- {e}", file=sys.stderr)
+		print("Please fix the above and re-run the command.", file=sys.stderr)
+		return False
+
+	return True
 
 
 def build_llm(api, model, temperature):
@@ -151,7 +219,8 @@ def run_pipeline(dataset_path, output_path, api, model, temperature, reruns, max
 			df[column_name] = pd.NA
 
 		for index, row in tqdm.tqdm(df.iterrows(), total=len(df)):
-			current_answer = df.at[index, column_name]
+			# Cast the (row_label, col_label) tuple to Any to satisfy static type checkers
+			current_answer = df.at[cast(Any, (index, column_name))]
 			if pd.notna(current_answer) and str(current_answer).strip():
 				continue
 
@@ -162,7 +231,7 @@ def run_pipeline(dataset_path, output_path, api, model, temperature, reruns, max
 				retry_cooldown_seconds,
 				increase_cooldown_timer,
 			)
-			df.at[index, column_name] = response
+			df.at[cast(Any, (index, column_name))] = response
 			df.to_csv(output_path, index=False)
 
 	df["temperature"] = temperature
@@ -172,12 +241,9 @@ def run_pipeline(dataset_path, output_path, api, model, temperature, reruns, max
 def main():
 	load_dotenv()
 	args = parse_args()
-	if not args.dataset_path:
-		print("Error: --dataset-path is required.")
-		return 1
-	if not args.output_path:
-		print("Error: --output-path is required.")
-		return 1
+	# Validate args with detailed explanations
+	if not validate_args(args):
+		return 2
 	run_pipeline(
 		dataset_path=args.dataset_path,
 		output_path=args.output_path,
