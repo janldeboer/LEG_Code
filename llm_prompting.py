@@ -1,15 +1,12 @@
 import os
 import argparse
 import time
+from importlib import import_module
 from pathlib import Path
 
 from dotenv import load_dotenv
 import pandas as pd
 import tqdm
-
-from openrouter import OpenRouter
-from google import genai
-from mistralai.client import Mistral
 
 
 def parse_args():
@@ -28,7 +25,7 @@ def parse_args():
 		"--api",
 		choices=["GEMINI", "OPENROUTER", "MISTRAL"],
 		default="MISTRAL",
-		help="LLM provider to use.",
+		help="LLM provider to use via LangChain.",
 	)
 	parser.add_argument(
 		"--model",
@@ -68,39 +65,60 @@ def parse_args():
 	return parser.parse_args()
 
 
-def get_answer(prompt, api, model, temperature, max_retries, retry_cooldown_seconds, increase_cooldown_timer):
+def build_llm(api, model, temperature):
+	provider_config = {
+		"GEMINI": {
+			"module": "langchain_google_genai",
+			"class_name": "ChatGoogleGenerativeAI",
+			"dependency": "langchain-google-genai",
+			"kwargs": {
+				"google_api_key": os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY"),
+			},
+		},
+		"OPENROUTER": {
+			"module": "langchain_openai",
+			"class_name": "ChatOpenAI",
+			"dependency": "langchain-openai",
+			"kwargs": {
+				"openai_api_key": os.getenv("OPENROUTER_API_KEY"),
+				"base_url": "https://openrouter.ai/api/v1",
+			},
+		},
+		"MISTRAL": {
+			"module": "langchain_mistralai",
+			"class_name": "ChatMistralAI",
+			"dependency": "langchain-mistralai",
+			"kwargs": {
+				"api_key": os.getenv("MISTRAL_API_KEY"),
+			},
+		},
+	}
+
+	config = provider_config.get(api)
+	if config is None:
+		raise ValueError(f"Unsupported API: {api}")
+
+	try:
+		module = import_module(config["module"])
+		llm_class = getattr(module, config["class_name"])
+	except ImportError as error:
+		raise ImportError(
+			f"Missing dependency for {api}. Install {config['dependency']}."
+		) from error
+
+	return llm_class(model=model, temperature=temperature, **config["kwargs"])
+
+
+def get_answer(llm, prompt, max_retries, retry_cooldown_seconds, increase_cooldown_timer):
 	retries_left = max_retries
 	current_retry_timeout = retry_cooldown_seconds
 	while retries_left > 0:
 		try:
-			if api == "GEMINI":
-				with genai.Client() as gemini_client:
-					response = gemini_client.models.generate_content(
-						model=model,
-						contents=prompt,
-						config={"temperature": temperature},
-					)
-					return response.text
-			if api == "OPENROUTER":
-				with OpenRouter(api_key=os.getenv("OPENROUTER_API_KEY")) as client:
-					response = client.chat.send(
-						model=model,
-						messages=[{"role": "user", "content": prompt}],
-						temperature=temperature,
-					)
-					return response.choices[0].message.content
-			if api == "MISTRAL":
-				with Mistral(api_key=os.getenv("MISTRAL_API_KEY")) as mistral:
-					res = mistral.chat.complete(
-						model=model,
-						messages=[{"content": prompt, "role": "user"}],
-						stream=False,
-						temperature=temperature,
-					)
-					if res.choices and res.choices[0].message:
-						return res.choices[0].message.content
-					raise ValueError("Invalid response format from Mistral API")
-			raise ValueError(f"Unsupported API: {api}")
+			response = llm.invoke(prompt)
+			content = getattr(response, "content", None)
+			if content is not None:
+				return content
+			return str(response)
 		except Exception as error:
 			retries_left -= 1
 			if retries_left <= 0:
@@ -115,6 +133,7 @@ def get_answer(prompt, api, model, temperature, max_retries, retry_cooldown_seco
 def run_pipeline(dataset_path, output_path, api, model, temperature, reruns, max_retries, retry_cooldown_seconds, increase_cooldown_timer):
 	dataset_path = Path(dataset_path)
 	output_path = Path(output_path)
+	llm = build_llm(api, model, temperature)
 
 	if output_path.exists():
 		df = pd.read_csv(output_path)
@@ -137,10 +156,8 @@ def run_pipeline(dataset_path, output_path, api, model, temperature, reruns, max
 				continue
 
 			response = get_answer(
+				llm,
 				row["prompt"],
-				api,
-				model,
-				temperature,
 				max_retries,
 				retry_cooldown_seconds,
 				increase_cooldown_timer,
