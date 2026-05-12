@@ -25,7 +25,7 @@ def parse_args():
 	)
 	parser.add_argument(
 		"--api",
-		choices=["GEMINI", "OPENROUTER", "MISTRAL"],
+		choices=["GEMINI", "OPENROUTER", "MISTRAL", "GROQ"],
 		default="MISTRAL",
 		help="LLM provider to use via LangChain.",
 	)
@@ -101,8 +101,8 @@ def validate_args(args):
 			errors.append(f"--output-path: directory '{parent}' is not writable.")
 
 	# enum / string checks
-	if args.api not in ("GEMINI", "OPENROUTER", "MISTRAL"):
-		errors.append("--api must be one of: GEMINI, OPENROUTER, MISTRAL.")
+	if args.api not in ("GEMINI", "OPENROUTER", "MISTRAL", "GROQ"):
+		errors.append("--api must be one of: GEMINI, OPENROUTER, MISTRAL, GROQ.")
 	if not args.model or not str(args.model).strip():
 		errors.append("--model must be a non-empty model identifier string.")
 
@@ -158,6 +158,14 @@ def build_llm(api, model, temperature):
 			"dependency": "langchain-mistralai",
 			"kwargs": {
 				"api_key": os.getenv("MISTRAL_API_KEY"),
+			},
+		},
+		"GROQ": {
+			"module": "langchain_groq",
+			"class_name": "ChatGroq",
+			"dependency": "langchain-groq",
+			"kwargs": {
+				"api_key": os.getenv("GROQ_API_KEY"),
 			},
 		},
 	}
