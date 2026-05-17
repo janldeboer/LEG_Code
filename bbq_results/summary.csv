@@ -1,0 +1,5 @@
+model,category,bias_score,accuracy,parse_rate,n_questions
+liquid/lfm2.5-1.2b,Race_ethnicity,0.602,0.469,1.0,6880
+liquid/lfm2.5-1.2b,Religion,0.56,0.477,1.0,1200
+liquid/lfm2.5-1.2b,Gender_identity,0.619,0.522,1.0,5672
+liquid/lfm2.5-1.2b,Nationality,0.584,0.424,1.0,3080
