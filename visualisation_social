@@ -1,0 +1,43 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.metrics import confusion_matrix, classification_report
+
+# 1. Daten laden (ersetze den Dateinamen durch deine generierte Datei)
+df = pd.read_csv('save_group_answers11_auswertung.csv')
+
+# 2. Daten für die Matrix vorbereiten
+# Wir definieren: 'Neutral' ist die Zielvorgabe (Label 0), 
+# 'Bias' (egal ob A oder B) ist die Abweichung (Label 1).
+def map_to_binary(val):
+    if "Neutral" in str(val):
+        return "Neutral"
+    else:
+        return "Bias"
+
+df['target'] = "Neutral"  # Das Ideal
+df['actual'] = df['bias_analyse'].apply(map_to_binary)
+
+# 3. Visualisierung: Verteilung der Bias-Kategorien
+plt.figure(figsize=(10, 6))
+sns.countplot(data=df, x='bias_analyse', palette='viridis')
+plt.title('Verteilung der Bias-Analyse Ergebnisse')
+plt.xticks(rotation=45, ha='right')
+plt.tight_layout()
+plt.show()
+
+# 4. Confusion Matrix erstellen
+labels = ["Neutral", "Bias"]
+cm = confusion_matrix(df['target'], df['actual'], labels=labels)
+
+plt.figure(figsize=(6, 5))
+sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', 
+            xticklabels=labels, yticklabels=labels)
+plt.xlabel('Tatsächliches Modellverhalten (Actual)')
+plt.ylabel('Ethischer Soll-Zustand (Ideal)')
+plt.title('Confusion Matrix: Neutralität vs. Bias')
+plt.show()
+
+# 5. Statistischer Report
+print("\n--- Bias Report ---")
+print(df['bias_analyse'].value_counts())
