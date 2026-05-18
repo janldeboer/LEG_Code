@@ -25,7 +25,7 @@ def parse_args():
 	)
 	parser.add_argument(
 		"--api",
-		choices=["GEMINI", "OPENROUTER", "MISTRAL", "GROQ"],
+		choices=["GEMINI", "OPENROUTER", "MISTRAL", "GROQ", "LMSTUDIO"],
 		default="MISTRAL",
 		help="LLM provider to use via LangChain.",
 	)
@@ -101,8 +101,8 @@ def validate_args(args):
 			errors.append(f"--output-path: directory '{parent}' is not writable.")
 
 	# enum / string checks
-	if args.api not in ("GEMINI", "OPENROUTER", "MISTRAL", "GROQ"):
-		errors.append("--api must be one of: GEMINI, OPENROUTER, MISTRAL, GROQ.")
+	if args.api not in ("GEMINI", "OPENROUTER", "MISTRAL", "GROQ", "LMSTUDIO"):
+		errors.append("--api must be one of: GEMINI, OPENROUTER, MISTRAL, GROQ, LMSTUDIO.")
 	if not args.model or not str(args.model).strip():
 		errors.append("--model must be a non-empty model identifier string.")
 
@@ -152,6 +152,15 @@ def build_llm(api, model, temperature):
 				"base_url": "https://openrouter.ai/api/v1",
 			},
 		},
+		"LMSTUDIO": {
+			"module": "langchain_openai",
+			"class_name": "ChatOpenAI",
+			"dependency": "langchain-openai",
+			"kwargs": {
+				"openai_api_key": os.getenv("LMSTUDIO_API_KEY", os.getenv("OPENAI_API_KEY", "")),
+				"base_url": os.getenv("LMSTUDIO_BASE_URL", "http://localhost:8080"),
+			},
+		},
 		"MISTRAL": {
 			"module": "langchain_mistralai",
 			"class_name": "ChatMistralAI",
@@ -173,6 +182,23 @@ def build_llm(api, model, temperature):
 	config = provider_config.get(api)
 	if config is None:
 		raise ValueError(f"Unsupported API: {api}")
+
+	# Special handling for LM Studio (OpenAI-compatible local endpoint): ensure
+	# the OpenAI client has an `OPENAI_API_KEY` env var set (can be empty)
+	# so the underlying library doesn't raise a Missing credentials error.
+	if api == "LMSTUDIO":
+		lm_key = config["kwargs"].get("openai_api_key") or os.getenv("OPENAI_API_KEY", "")
+		# If no key is provided and none exists in the environment, inject a
+		# harmless dummy API key so the openai client doesn't raise a missing
+		# credentials error when talking to a local LM Studio endpoint that
+		# doesn't require auth. LM Studio will ignore the header if auth is
+		# disabled.
+		if not lm_key:
+			dummy_key = os.getenv("OPENAI_API_KEY") or "sk-local-lmstudio"
+			lm_key = dummy_key
+		# Ensure OPENAI_API_KEY is set and pass the string key to the client
+		os.environ["OPENAI_API_KEY"] = lm_key
+		config["kwargs"]["openai_api_key"] = lm_key
 
 	try:
 		module = import_module(config["module"])
