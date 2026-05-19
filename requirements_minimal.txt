@@ -1,0 +1,10 @@
+python-dotenv
+pandas
+tqdm
+langchain
+langchain-openai
+langchain-google-genai
+langchain-mistralai
+langchain-groq
+matplotlib
+datasets
