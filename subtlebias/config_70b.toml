@@ -1,0 +1,41 @@
+# =============================================================================
+# Workplace Bias Audit — Llama 3.3 70B via Groq
+# Requires: GROQ_API_KEY in your environment or .env file
+# =============================================================================
+
+[collect]
+input    = "workplace_scenarios.json"
+output   = "results/audit_workplace_full.json"
+provider = "groq"
+model    = "llama-3.3-70b-versatile"
+resume   = false
+M        = 2
+
+[judge]
+input                = "results/audit_workplace_full.json"
+output_dir           = "results"
+neutralized_cache    = "results/neutralized_cache.json"
+force_neutralization = false
+test_models          = ["llama-3.3-70b-versatile"]
+M                    = 1
+skip_neutralization  = false
+skip_pairwise        = false
+skip_ranking         = false
+
+[judge.neutralization]
+provider = "groq"
+model    = "llama-3.1-8b-instant"
+
+[judge.pairwise]
+provider = "groq"
+model    = "llama-3.3-70b-versatile"
+
+[judge.ranking]
+provider = "groq"
+model    = "llama-3.3-70b-versatile"
+
+[judge.pipeline]
+max_workers = 2
+delay       = 1.0
+max_retries = 3
+retry_delay = 2.0

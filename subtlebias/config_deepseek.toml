@@ -1,0 +1,42 @@
+# =============================================================================
+# Workplace Bias Audit — DeepSeek R1 7B via Ollama (local)
+# Requires: Ollama running locally with `ollama pull deepseek-r1:7b`
+# Judging still uses Groq — GROQ_API_KEY required
+# =============================================================================
+
+[collect]
+input    = "workplace_scenarios.json"
+output   = "results/audit_workplace_full.json"
+provider = "ollama"
+model    = "deepseek-r1:7b"
+resume   = false
+M        = 2
+
+[judge]
+input                = "results/audit_workplace_full.json"
+output_dir           = "results"
+neutralized_cache    = "results/neutralized_cache.json"
+force_neutralization = false
+test_models          = ["deepseek-r1:7b"]
+M                    = 1
+skip_neutralization  = false
+skip_pairwise        = false
+skip_ranking         = false
+
+[judge.neutralization]
+provider = "groq"
+model    = "llama-3.1-8b-instant"
+
+[judge.pairwise]
+provider = "groq"
+model    = "llama-3.3-70b-versatile"
+
+[judge.ranking]
+provider = "groq"
+model    = "llama-3.3-70b-versatile"
+
+[judge.pipeline]
+max_workers = 2
+delay       = 1.0
+max_retries = 3
+retry_delay = 2.0

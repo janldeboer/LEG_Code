@@ -1,0 +1,12 @@
+groq
+anthropic
+tomli ; python_version < "3.11"
+sentence-transformers
+umap-learn
+vaderSentiment
+textblob
+matplotlib
+pandas
+numpy
+scikit-learn
+fastembed
