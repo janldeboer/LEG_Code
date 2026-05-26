@@ -6,12 +6,24 @@ from importlib import import_module
 from pathlib import Path
 
 from dotenv import load_dotenv
-from typing import Any, cast
+from typing import Any, Iterable, Optional, Sequence, cast
 import pandas as pd
 import tqdm
 
+__all__ = [
+	"build_llm",
+	"get_answer",
+	"load_dataset",
+	"ensure_output_frame",
+	"generate_answers",
+	"run_pipeline",
+	"parse_args",
+	"validate_args",
+	"main",
+]
 
-def parse_args():
+
+def parse_args(args: Optional[Sequence[str]] = None):
 	parser = argparse.ArgumentParser(
 		description="Generate LLM answers for prompts stored in a CSV file."
 	)
@@ -64,7 +76,7 @@ def parse_args():
 		default=2,
 		help="Multiplier applied to the retry delay after each failed attempt.",
 	)
-	return parser.parse_args()
+	return parser.parse_args(args)
 
 
 def validate_args(args):
@@ -232,27 +244,42 @@ def get_answer(llm, prompt, max_retries, retry_cooldown_seconds, increase_cooldo
 			current_retry_timeout *= increase_cooldown_timer
 
 
-def run_pipeline(dataset_path, output_path, api, model, temperature, reruns, max_retries, retry_cooldown_seconds, increase_cooldown_timer):
-	dataset_path = Path(dataset_path)
-	output_path = Path(output_path)
-	llm = build_llm(api, model, temperature)
+def load_dataset(dataset_path: Path) -> pd.DataFrame:
+	if not dataset_path.exists():
+		raise FileNotFoundError(f"Dataset not found: {dataset_path}")
+	if dataset_path.suffix.lower() != ".csv":
+		raise ValueError("Dataset must be a CSV file.")
+	return pd.read_csv(dataset_path)
 
+
+def ensure_output_frame(dataset_path: Path, output_path: Path) -> pd.DataFrame:
 	if output_path.exists():
-		df = pd.read_csv(output_path)
-	else:
-		df = pd.read_csv(dataset_path)
+		return pd.read_csv(output_path)
+	return load_dataset(dataset_path)
 
+
+def generate_answers(
+	llm,
+	df: pd.DataFrame,
+	output_path: Path,
+	*,
+	temperature: float,
+	reruns: int,
+	max_retries: int,
+	retry_cooldown_seconds: float,
+	increase_cooldown_timer: float,
+	progress_iter: Optional[Iterable] = None,
+) -> pd.DataFrame:
 	if "prompt" not in df.columns:
 		raise ValueError("Input data must contain a 'prompt' column.")
 
-	df["temperature"] = temperature
-
 	for run_index in range(reruns):
-		column_name = f"answer_run_{run_index + 1}"
+		column_name = f"generated_answer_run_{run_index + 1}"
 		if column_name not in df.columns:
 			df[column_name] = pd.NA
 
-		for index, row in tqdm.tqdm(df.iterrows(), total=len(df)):
+		iterator = progress_iter or tqdm.tqdm(df.iterrows(), total=len(df))
+		for index, row in iterator:
 			# Cast the (row_label, col_label) tuple to Any to satisfy static type checkers
 			current_answer = df.at[cast(Any, (index, column_name))]
 			if pd.notna(current_answer) and str(current_answer).strip():
@@ -266,28 +293,57 @@ def run_pipeline(dataset_path, output_path, api, model, temperature, reruns, max
 				increase_cooldown_timer,
 			)
 			df.at[cast(Any, (index, column_name))] = response
+			df["temperature"] = temperature
 			df.to_csv(output_path, index=False)
 
 	df["temperature"] = temperature
 	df.to_csv(output_path, index=False)
+	return df
 
 
-def main():
+def run_pipeline(
+	dataset_path,
+	output_path,
+	api,
+	model,
+	temperature,
+	reruns,
+	max_retries,
+	retry_cooldown_seconds,
+	increase_cooldown_timer,
+):
+	dataset_path = Path(dataset_path)
+	output_path = Path(output_path)
+	llm = build_llm(api, model, temperature)
+	frame = ensure_output_frame(dataset_path, output_path)
+	return generate_answers(
+		llm,
+		frame,
+		output_path,
+		temperature=temperature,
+		reruns=reruns,
+		max_retries=max_retries,
+		retry_cooldown_seconds=retry_cooldown_seconds,
+		increase_cooldown_timer=increase_cooldown_timer,
+	)
+
+
+def main(args: Optional[Sequence[str]] = None):
 	load_dotenv()
-	args = parse_args()
+	parsed = parse_args(args)
 	# Validate args with detailed explanations
-	if not validate_args(args):
+	if not validate_args(parsed):
 		return 2
 	run_pipeline(
-		dataset_path=args.dataset_path,
-		output_path=args.output_path,
-		api=args.api,
-		model=args.model,
-		temperature=args.temperature,
-		reruns=args.reruns,
-		max_retries=args.max_retries,
-		retry_cooldown_seconds=args.retry_cooldown_seconds,
-		increase_cooldown_timer=args.increase_cooldown_timer,
+		dataset_path=parsed.dataset_path,
+		output_path=parsed.output_path,
+		api=parsed.api,
+		model=parsed.model,
+		temperature=parsed.temperature,
+		reruns=parsed.reruns,
+		max_retries=parsed.max_retries,
+		retry_cooldown_seconds=parsed.retry_cooldown_seconds,
+		increase_cooldown_timer=parsed.increase_cooldown_timer,
 	)
 	return 0
 
