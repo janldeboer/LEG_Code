@@ -223,7 +223,7 @@ def build_llm(api, model, temperature):
 	return llm_class(model=model, temperature=temperature, **config["kwargs"])
 
 
-def get_answer(llm, prompt, max_retries, retry_cooldown_seconds, increase_cooldown_timer):
+def get_answer(llm, prompt, max_retries, retry_cooldown_seconds, increase_cooldown_timer) -> str:
 	retries_left = max_retries
 	current_retry_timeout = retry_cooldown_seconds
 	while retries_left > 0:
@@ -242,6 +242,7 @@ def get_answer(llm, prompt, max_retries, retry_cooldown_seconds, increase_cooldo
 			print(f"Retrying in {current_retry_timeout} seconds, retries left: {retries_left}")
 			time.sleep(current_retry_timeout)
 			current_retry_timeout *= increase_cooldown_timer
+	return "ERROR: UNHANDLED FAILURE"
 
 
 def load_dataset(dataset_path: Path) -> pd.DataFrame:
