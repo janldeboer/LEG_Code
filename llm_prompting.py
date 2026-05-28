@@ -231,7 +231,19 @@ def get_answer(llm, prompt, max_retries, retry_cooldown_seconds, increase_cooldo
 			response = llm.invoke(prompt)
 			content = getattr(response, "content", None)
 			if content is not None:
-				return content
+				if type(content) == str:
+					return content
+				if type(content) == list:
+					content_element_0 = content[0]
+					if not "text" in content_element_0:
+						print("Warning: LLM response 'text' attribute is a list but its first element has no 'text' key. Falling back to str(response).")
+						print(f"Full response object: {response}")
+						return str(response)
+					content = content_element_0["text"]
+					return content
+			if not isinstance(content, str):
+				print("Warning: LLM response has no 'content' attribute or it's not a string. Falling back to str(response).")
+				print(f"Full response object: {response}")
 			return str(response)
 		except Exception as error:
 			retries_left -= 1
