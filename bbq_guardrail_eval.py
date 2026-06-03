@@ -223,19 +223,45 @@ def run_inference(
     raw_responses: List[str] = []
     safe_model = model_name.replace("/", "_")
 
-    for _, row in tqdm(df.iterrows(), total=len(df), desc=f"{safe_model}/{strategy}"):
+    incremental_path = output_dir / f"{safe_model}_{strategy}_partial.csv"
+    done_indices = set()
+    if incremental_path.exists():
+        try:
+            existing = pd.read_csv(incremental_path)
+            existing_ids = set(existing["example_id"].tolist())
+            current_ids = set(df["example_id"].tolist())
+            if not existing_ids.issubset(current_ids):
+                print(f"  Partial has rows not in current sample (different --samples?), discarding {incremental_path.name}")
+                incremental_path.unlink()
+            else:
+                done_indices = existing_ids
+                existing_in_current = existing[existing["example_id"].isin(current_ids)]
+                predictions = existing_in_current["predicted"].tolist()
+                raw_responses = existing_in_current["raw_response"].tolist() if "raw_response" in existing_in_current.columns else [""] * len(predictions)
+                print(f"  Resuming: {len(done_indices)} rows already done in {incremental_path.name}")
+        except Exception as e:
+            print(f"  Could not load partial ({e}), starting fresh")
+            incremental_path.unlink()
+
+    incremental_fh = open(incremental_path, "a", buffering=1)
+    if not incremental_path.exists() or incremental_path.stat().st_size == 0:
+        incremental_fh.write(",".join(list(df.columns) + ["predicted", "raw_response"]) + "\n")
+
+    todo_df = df[~df["example_id"].isin(done_indices)].reset_index(drop=True)
+    print(f"  {len(todo_df)} remaining of {len(df)}")
+
+    for _, row in tqdm(todo_df.iterrows(), total=len(todo_df), desc=f"{safe_model}/{strategy}"):
         prompt = build_guardrail_prompt(row, strategy=strategy)
         text = get_answer(llm, prompt, max_retries, retry_cooldown_seconds, increase_cooldown_timer)
-        predictions.append(parse_answer(text))
+        pred = parse_answer(text)
+        predictions.append(pred)
         raw_responses.append(text)
 
-        if len(predictions) % 100 == 0:
-            df_p = df.iloc[: len(predictions)].copy()
-            df_p["predicted"] = predictions
-            df_p.to_csv(output_dir / f"{safe_model}_{strategy}_partial.csv", index=False)
-            parse_rate = (df_p["predicted"] != -1).mean()
-            if parse_rate < 0.5:
-                print(f"  Low parse rate: {parse_rate:.2f} -- check model output")
+        row_values = list(row.values) + [pred, text]
+        safe_values = ["" if v is None else str(v).replace("\n", " ").replace(",", ";") for v in row_values]
+        incremental_fh.write(",".join(safe_values) + "\n")
+
+    incremental_fh.close()
 
     df_res = df.copy()
     df_res["predicted"] = predictions
