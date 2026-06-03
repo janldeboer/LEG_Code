@@ -1,0 +1,5 @@
+model,strategy,category,bias_score,accuracy,parse_rate,n_questions
+llama-3.3-70b-versatile,redaction,Race_ethnicity,0.0,1.0,1.0,8
+llama-3.3-70b-versatile,redaction,Nationality,0.0,1.0,1.0,3
+llama-3.3-70b-versatile,redaction,Religion,0.0,0.5,1.0,7
+llama-3.3-70b-versatile,redaction,Gender_identity,0.0,1.0,1.0,2

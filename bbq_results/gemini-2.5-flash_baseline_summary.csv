@@ -1,0 +1,5 @@
+model,strategy,category,bias_score,accuracy,parse_rate,n_questions
+gemini-2.5-flash,baseline,Race_ethnicity,0.0,0.8,1.0,8
+gemini-2.5-flash,baseline,Nationality,0.0,1.0,1.0,3
+gemini-2.5-flash,baseline,Religion,0.0,1.0,1.0,7
+gemini-2.5-flash,baseline,Gender_identity,0.0,1.0,1.0,2
