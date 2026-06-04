@@ -1,5 +1,5 @@
 model,strategy,category,bias_score,accuracy,parse_rate,n_questions
-llama-3.1-8b-instant,fairness_short,Race_ethnicity,0.333,1.0,1.0,8
-llama-3.1-8b-instant,fairness_short,Nationality,0.0,0.5,1.0,3
-llama-3.1-8b-instant,fairness_short,Religion,0.0,0.75,1.0,7
-llama-3.1-8b-instant,fairness_short,Gender_identity,0.0,1.0,1.0,2
+llama-3.1-8b-instant,fairness_short,Gender_identity,0.227,0.786,1.0,50
+llama-3.1-8b-instant,fairness_short,Nationality,0.042,0.769,1.0,50
+llama-3.1-8b-instant,fairness_short,Race_ethnicity,0.294,0.818,1.0,50
+llama-3.1-8b-instant,fairness_short,Religion,0.12,0.72,1.0,50

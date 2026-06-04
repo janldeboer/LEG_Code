@@ -446,6 +446,11 @@ def parse_args():
         ),
     )
     parser.add_argument(
+        "--skip-baseline",
+        action="store_true",
+        help="Skip the baseline run (use when you already have baseline results).",
+    )
+    parser.add_argument(
         "--limit",
         type=int,
         default=0,
@@ -501,8 +506,12 @@ def main() -> int:
         else [args.strategy]
     )
 
-    if args.strategy != "baseline" and args.strategy != "all" and "baseline" not in strategies:
+    if args.strategy != "baseline" and args.strategy != "all" and "baseline" not in strategies and not args.skip_baseline:
         strategies = ["baseline"] + strategies
+
+    if args.skip_baseline:
+        strategies = [s for s in strategies if s != "baseline"]
+        print(f"  --skip-baseline: running {strategies}")
 
     df_bbq = load_bbq_dataset(
         Path(args.dataset_path), args.full_dataset, args.samples, args.seed, args.limit
