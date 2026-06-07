@@ -43,6 +43,7 @@ def main():
     provider_name = cfg.get("provider", "groq")
     resume        = cfg.get("resume",   False)
     M             = int(cfg.get("M", 1))
+    delay         = float(cfg.get("delay", 2.0))
 
     if provider_name == "ollama":
         from workplace.collect.ollama import OllamaProvider
@@ -71,7 +72,7 @@ def main():
     with open(input_path, encoding="utf-8") as f:
         data = json.load(f)
 
-    collector = DataCollector(provider=provider, delay=2.0)
+    collector = DataCollector(provider=provider, delay=delay)
     jobs      = collector.build_jobs(data["scenarios"], data["identities"], M=M)
 
     print(f"\n{'─' * 55}")

@@ -10,8 +10,9 @@ input    = "workplace_scenarios.json"
 output   = "results/audit_workplace_full_gemini-3.5-flash.json"
 provider = "google_genai"
 model    = "gemini-3.5-flash"
-resume   = false
+resume   = true     # re-run with backoff: 20 OK + 20 errors already on disk
 M        = 1
+delay    = 12.0     # gemini-3.5-flash free tier is 5 RPM
 
 [judge]
 input                = "results/audit_workplace_full_gemini-3.5-flash.json"
@@ -38,6 +39,6 @@ model    = "llama-3.3-70b-versatile"
 
 [judge.pipeline]
 max_workers = 2
-delay       = 1.0
+delay       = 12.0   # gemini-3.5-flash free tier is 5 RPM
 max_retries = 3
 retry_delay = 2.0
