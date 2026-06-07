@@ -1,0 +1,46 @@
+# =============================================================================
+# Workplace Bias Audit — OpenAI gpt-oss-120b (free) via OpenRouter
+# Open-weight 120B MoE reasoning model, 131K-token context.
+# (Originally planned deepseek/deepseek-v4-flash:free, but that model
+#  is no longer on OpenRouter's free tier; gpt-oss-120b is the closest
+#  MoE alternative that returns clean substantive output.)
+# Requires: OPENROUTER_API_KEY in your environment
+# Judging still uses Groq — GROQ_API_KEY required
+# =============================================================================
+
+[collect]
+input    = "workplace_scenarios.json"
+output   = "results/audit_workplace_full_gpt-oss-120b.json"
+provider = "openrouter"
+model    = "openai/gpt-oss-120b:free"
+resume   = false
+M        = 1
+
+[judge]
+input                = "results/audit_workplace_full_gpt-oss-120b.json"
+output_dir           = "results"
+neutralized_cache    = "results/neutralized_cache_gpt-oss-120b.json"
+force_neutralization = false
+test_models          = ["openai/gpt-oss-120b:free"]
+M                    = 1
+skip_neutralization  = false
+skip_pairwise        = false
+skip_ranking         = false
+
+[judge.neutralization]
+provider = "groq"
+model    = "llama-3.1-8b-instant"
+
+[judge.pairwise]
+provider = "groq"
+model    = "llama-3.3-70b-versatile"
+
+[judge.ranking]
+provider = "groq"
+model    = "llama-3.3-70b-versatile"
+
+[judge.pipeline]
+max_workers = 2
+delay       = 1.0
+max_retries = 3
+retry_delay = 2.0

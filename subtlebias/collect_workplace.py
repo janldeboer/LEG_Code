@@ -53,8 +53,20 @@ def main():
             raise SystemExit("GROQ_API_KEY not set.")
         from workplace.collect.groq import GroqProvider
         provider = GroqProvider(api_key=api_key, model=model, temperature=1.0, max_tokens=600)
+    elif provider_name == "google_genai":
+        api_key = os.environ.get("GEMINI_API_KEY")
+        if not api_key:
+            raise SystemExit("GEMINI_API_KEY not set.")
+        from workplace.collect.google_genai import GoogleGenAIProvider
+        provider = GoogleGenAIProvider(api_key=api_key, model=model, temperature=1.0, max_tokens=600)
+    elif provider_name == "openrouter":
+        api_key = os.environ.get("OPENROUTER_API_KEY")
+        if not api_key:
+            raise SystemExit("OPENROUTER_API_KEY not set.")
+        from workplace.collect.openrouter import OpenRouterProvider
+        provider = OpenRouterProvider(api_key=api_key, model=model, temperature=1.0, max_tokens=600)
     else:
-        raise SystemExit(f"Unknown collect provider: {provider_name!r}  (choices: groq, ollama)")
+        raise SystemExit(f"Unknown collect provider: {provider_name!r}  (choices: groq, ollama, google_genai, openrouter)")
 
     with open(input_path, encoding="utf-8") as f:
         data = json.load(f)
