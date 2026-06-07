@@ -1,25 +1,26 @@
 # =============================================================================
-# Workplace Bias Audit — Gemini 3.5 Flash via Google AI Studio
-# (Replaces retired gemini-3.1-flash-lite-preview; higher free-tier RPD.)
+# Workplace Bias Audit — Gemini 3.1 Flash-Lite via Google AI Studio
+# (gemini-3.5-flash hit a 20-RPD free-tier cap mid-run; 3.1-flash-lite
+#  has its own separate counter. Stable, lightweight model.)
 # Requires: GEMINI_API_KEY in your environment
 # Judging still uses Groq — GROQ_API_KEY required
 # =============================================================================
 
 [collect]
 input    = "workplace_scenarios.json"
-output   = "results/audit_workplace_full_gemini-3.5-flash.json"
+output   = "results/audit_workplace_full_gemini-3.1-flash-lite.json"
 provider = "google_genai"
-model    = "gemini-3.5-flash"
-resume   = true     # re-run with backoff: 20 OK + 20 errors already on disk
+model    = "gemini-3.1-flash-lite"
+resume   = false
 M        = 1
-delay    = 12.0     # gemini-3.5-flash free tier is 5 RPM
+delay    = 12.0     # gemini free-tier is throttled to 5 RPM
 
 [judge]
-input                = "results/audit_workplace_full_gemini-3.5-flash.json"
+input                = "results/audit_workplace_full_gemini-3.1-flash-lite.json"
 output_dir           = "results"
-neutralized_cache    = "results/neutralized_cache_gemini-3.5-flash.json"
+neutralized_cache    = "results/neutralized_cache_gemini-3.1-flash-lite.json"
 force_neutralization = false
-test_models          = ["gemini-3.5-flash"]
+test_models          = ["gemini-3.1-flash-lite"]
 M                    = 1
 skip_neutralization  = false
 skip_pairwise        = false
@@ -39,6 +40,7 @@ model    = "llama-3.3-70b-versatile"
 
 [judge.pipeline]
 max_workers = 2
-delay       = 12.0   # gemini-3.5-flash free tier is 5 RPM
+delay       = 12.0
 max_retries = 3
 retry_delay = 2.0
+
